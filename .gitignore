@@ -2,6 +2,7 @@ node_modules/
 .next/
 dist/
 build/
+.tools/
 .env
 .env.*
 .DS_Store

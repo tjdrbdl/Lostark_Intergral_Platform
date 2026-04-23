@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: #0A0E14;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: #f0f0f0;
+  font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+}
