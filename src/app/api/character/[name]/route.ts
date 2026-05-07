@@ -70,11 +70,11 @@ export async function GET(_req: NextRequest, { params }: Params) {
     }
 
     const profile = profileRes.value.data;
-    const equipment = equipRes.status === "fulfilled" ? equipRes.value.data : [];
+    const equipment = equipRes.status === "fulfilled" ? (equipRes.value.data ?? []) : [];
     const gems =
-      gemRes.status === "fulfilled" ? gemRes.value.data.Gems ?? [] : [];
+      gemRes.status === "fulfilled" ? (gemRes.value.data.Gems ?? []) : [];
     const engravings =
-      engravingRes.status === "fulfilled" ? engravingRes.value.data : [];
+      engravingRes.status === "fulfilled" ? (engravingRes.value.data?.Engravings ?? []) : [];
     const siblings =
       siblingRes.status === "fulfilled"
         ? normalizeSiblings(siblingRes.value.data)

@@ -55,9 +55,9 @@ export async function fetchCharacterProfile(characterName: string) {
   );
 }
 
-/** 캐릭터 장비 조회 */
+/** 캐릭터 장비 조회 — 장비 없으면 null 반환 가능 */
 export async function fetchCharacterEquipment(characterName: string) {
-  return lostarkFetch<LostArkEquipment[]>(
+  return lostarkFetch<LostArkEquipment[] | null>(
     `/armories/characters/${encodeURIComponent(characterName)}/equipment`,
     { revalidate: 300 }
   );
@@ -71,17 +71,17 @@ export async function fetchCharacterGems(characterName: string) {
   );
 }
 
-/** 캐릭터 각인 조회 */
+/** 캐릭터 각인 조회 — 실제 응답은 배열이 아닌 객체 { Engravings, Effects } */
 export async function fetchCharacterEngravings(characterName: string) {
-  return lostarkFetch<LostArkEngraving[]>(
+  return lostarkFetch<LostArkEngravingResponse>(
     `/armories/characters/${encodeURIComponent(characterName)}/engravings`,
     { revalidate: 300 }
   );
 }
 
-/** 원정대 캐릭터 목록 조회 */
+/** 원정대 캐릭터 목록 조회 — 1인 원정대이거나 비공개 시 null 반환 가능 */
 export async function fetchExpeditionCharacters(characterName: string) {
-  return lostarkFetch<LostArkSibling[]>(
+  return lostarkFetch<LostArkSibling[] | null>(
     `/characters/${encodeURIComponent(characterName)}/siblings`,
     { revalidate: 300 }
   );
@@ -122,6 +122,13 @@ export interface LostArkEngraving {
   Name: string;
   Icon: string;
   Level: number;
+}
+
+/** 각인 엔드포인트 실제 응답 래퍼 */
+export interface LostArkEngravingResponse {
+  /** 각인 목록 — 각인 없으면 null 반환 */
+  Engravings: LostArkEngraving[] | null;
+  Effects: { Name: string; Description: string }[] | null;
 }
 
 export interface LostArkSibling {

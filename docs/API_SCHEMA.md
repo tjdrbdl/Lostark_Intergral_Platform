@@ -11,6 +11,15 @@
 | `partial` | boolean | 일부 소스 실패로 부분 성공 여부 |
 | `warnings` | string[] | 사용자에게 표시할 경고 메시지 목록 |
 
+## source 값 정책
+
+| 값 | 설명 |
+|---|---|
+| `mock` | `LOSTARK_API_KEY` 미설정 시 in-memory mock 데이터 반환 |
+| `lostark-openapi` | 실제 LostArk Open API 호출 성공 |
+| `memory` | in-memory saved store 조회/쓰기 |
+| `unknown` | 출처 미확인 (fallback) |
+
 ## 엔드포인트
 
 ### 조회 (GET)
@@ -19,6 +28,42 @@
 - `GET /api/expedition/:name` — 원정대 통합 (캐릭터 목록 + ROI 카드)
 - `GET /api/weekly/:name` — 주간 체크리스트 + roiFollowups
 - `GET /api/saved` — 저장 목록(pinned 우선→lastSeenAt 최신순) + 변경 추적 이벤트
+
+#### GET /api/character/:name 에러 코드
+
+| 코드 | HTTP | 설명 |
+|---|---|---|
+| `INVALID_NAME` | 400 | 이름 파라미터 비어 있음 |
+| `CHARACTER_NOT_FOUND` | 404 | 해당 캐릭터 없음 (API 404 또는 프로필 조회 실패) |
+| `CHARACTER_FETCH_ERROR` | 500 | 서버 내부 오류 |
+
+partial=true 케이스: 장비/보석/각인/원정대 목록 중 일부 실패 시 `warnings`에 상세 항목 포함.
+
+#### GET /api/expedition/:name 에러 코드
+
+| 코드 | HTTP | 설명 |
+|---|---|---|
+| `INVALID_NAME` | 400 | 이름 파라미터 비어 있음 |
+| `EXPEDITION_NOT_FOUND` | 404 | 원정대 캐릭터 목록 없음 (API 실패 또는 null 반환) |
+| `EXPEDITION_FETCH_ERROR` | 500 | 서버 내부 오류 |
+
+partial=true 케이스: 대표 캐릭터 상세 조회 실패 시 `topCharacter=null`로 반환하고 `warnings` 포함.
+
+#### GET /api/weekly/:name 에러 코드
+
+| 코드 | HTTP | 설명 |
+|---|---|---|
+| `INVALID_NAME` | 400 | 이름 파라미터 비어 있음 |
+| `WEEKLY_NOT_FOUND` | 404 | 원정대 캐릭터 목록 없음 (API 실패 또는 null 반환) |
+| `WEEKLY_FETCH_ERROR` | 500 | 서버 내부 오류 |
+
+#### API 키 정책
+
+| 상황 | 동작 |
+|---|---|
+| `LOSTARK_API_KEY` 미설정 | `IS_MOCK_MODE=true` → mock 데이터 반환, `source: ["mock"]` |
+| `LOSTARK_API_KEY` 잘못됨 | LostArk API 401 → `CHARACTER_FETCH_ERROR` / `EXPEDITION_FETCH_ERROR` / `WEEKLY_FETCH_ERROR` 500 |
+| 외부 API 일부 실패 | `partial: true`, `warnings` 배열에 항목 포함 |
 
 ### 저장 쓰기 (Write)
 
@@ -77,7 +122,7 @@
 **에러 코드:**
 | 코드 | HTTP | 설명 |
 |------|------|------|
-| `INVALID_BODY` | 400 | 필드 타입 오류 |
+| `INVALID_BODY` | 400 | 필드 타입 오류 또는 수정 필드(pinned/tags/label) 하나도 없음 |
 | `SAVED_NOT_FOUND` | 404 | 해당 id 항목 없음 |
 | `SAVED_PATCH_ERROR` | 500 | 서버 내부 오류 |
 

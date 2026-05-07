@@ -57,6 +57,17 @@ export async function GET(_req: NextRequest, { params }: Params) {
       );
     }
 
+    if (!siblingsRes.data || siblingsRes.data.length === 0) {
+      return NextResponse.json(
+        makeError(
+          "EXPEDITION_NOT_FOUND",
+          `'${characterName}' 원정대에 속한 캐릭터 데이터가 없습니다.`,
+          { source: "lostark-openapi", fetchedAt }
+        ),
+        { status: 404 }
+      );
+    }
+
     const allCharacters = normalizeSiblings(siblingsRes.data);
     const topCharacterName = allCharacters[0]?.characterName ?? characterName;
 
@@ -72,11 +83,11 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
       if (profileRes.status === "fulfilled") {
         const equipment =
-          equipRes.status === "fulfilled" ? equipRes.value.data : [];
+          equipRes.status === "fulfilled" ? (equipRes.value.data ?? []) : [];
         const gems =
-          gemRes.status === "fulfilled" ? gemRes.value.data.Gems ?? [] : [];
+          gemRes.status === "fulfilled" ? (gemRes.value.data.Gems ?? []) : [];
         const engravings =
-          engravingRes.status === "fulfilled" ? engravingRes.value.data : [];
+          engravingRes.status === "fulfilled" ? (engravingRes.value.data?.Engravings ?? []) : [];
         topCharacter = normalizeCharacterProfile(
           profileRes.value.data,
           equipment,

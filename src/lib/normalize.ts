@@ -13,16 +13,18 @@ import type {
 import type { CharacterSpec, EquipmentItem, Gem, Engraving } from "@/types/character";
 import type { ExpeditionCharacterSummary } from "@/types/expedition";
 
-/** "1,620.00" → 1620 */
-function parseItemLevel(raw: string): number {
-  return Math.floor(parseFloat(raw.replace(/,/g, "")));
+/** "1,620.00" → 1620 — null/undefined/빈 문자열 안전 처리 */
+function parseItemLevel(raw: string | null | undefined): number {
+  if (!raw) return 0;
+  const parsed = parseFloat(raw.replace(/,/g, ""));
+  return isNaN(parsed) ? 0 : Math.floor(parsed);
 }
 
 export function normalizeCharacterProfile(
   profile: LostArkCharacterProfile,
-  equipment: LostArkEquipment[],
-  gems: LostArkGem[],
-  engravings: LostArkEngraving[]
+  equipment: LostArkEquipment[] | null | undefined,
+  gems: LostArkGem[] | null | undefined,
+  engravings: LostArkEngraving[] | null | undefined
 ): CharacterSpec {
   return {
     characterName: profile.CharacterName,
@@ -40,7 +42,8 @@ export function normalizeCharacterProfile(
   };
 }
 
-function normalizeEquipment(items: LostArkEquipment[]): EquipmentItem[] {
+function normalizeEquipment(items: LostArkEquipment[] | null | undefined): EquipmentItem[] {
+  if (!items) return [];
   return items.map((item) => {
     // 티어/레벨은 Tooltip JSON 파싱이 필요하나 현재는 추정값 반환
     // TODO: Tooltip 필드 파싱 후 정확한 값 추출
@@ -63,7 +66,8 @@ function inferTierFromGrade(grade: string): number {
   return 1;
 }
 
-function normalizeGems(gems: LostArkGem[]): Gem[] {
+function normalizeGems(gems: LostArkGem[] | null | undefined): Gem[] {
+  if (!gems) return [];
   return gems.map((gem) => ({
     level: gem.Level,
     type: gem.Name.includes("홍염") ? "홍염" : "멸화",
@@ -72,7 +76,8 @@ function normalizeGems(gems: LostArkGem[]): Gem[] {
   }));
 }
 
-function normalizeEngravings(engravings: LostArkEngraving[]): Engraving[] {
+function normalizeEngravings(engravings: LostArkEngraving[] | null | undefined): Engraving[] {
+  if (!engravings) return [];
   return engravings.map((e) => ({
     name: e.Name,
     level: e.Level,
@@ -80,8 +85,9 @@ function normalizeEngravings(engravings: LostArkEngraving[]): Engraving[] {
 }
 
 export function normalizeSiblings(
-  siblings: LostArkSibling[]
+  siblings: LostArkSibling[] | null | undefined
 ): ExpeditionCharacterSummary[] {
+  if (!siblings) return [];
   return siblings
     .map((s) => ({
       characterName: s.CharacterName,
