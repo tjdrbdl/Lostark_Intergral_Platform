@@ -6,8 +6,8 @@
 |---|---|
 | date | 2026-05-07 |
 | branch | main |
-| commit | f33fe7c (Sprint 4 hardening) |
-| LOSTARK_API_KEY | unset → IS_MOCK_MODE=true |
+| commit | f9e309b (Sprint 5 source naming) |
+| LOSTARK_API_KEY | set (length=634) → IS_MOCK_MODE=false |
 | dev server | http://localhost:3099 |
 | Node | G:\Coding\Project_LostArk\.tools\node\node.exe (v24.15.0) |
 
@@ -20,6 +20,28 @@
 | `docs/API_SCHEMA.md` 공통 메타 필드 설명 | `` `lostark-api` `` | `` `lostark-openapi` `` |
 | `docs/API_SCHEMA.md` source 정책 표 | `fallback` 항목 없음 | `fallback` 행 추가 |
 | `src/app/api/home/route.ts` 에러 source | `"lostark-openapi"` | `"unknown"` |
+
+---
+
+## 3a. Success Case — Real API Mode (S5-T2, S5-T3, S5-T4)
+
+테스트 캐릭터: `마에스트로` (실존 캐릭터, ilvl≈1700)
+
+| API | input | status | source | partial | warnings | result |
+|---|---|---:|---|:---:|---|---|
+| GET /api/character/:name | `마에스트로` | 200 | `lostark-openapi` | false | 0 | itemLevel=1700, class=배틀마스터, equipment 16개, gems 11개 |
+| GET /api/expedition/:name | `마에스트로` | 200 | `lostark-openapi` | false | 0 | totalCharacterCount=21, roiCards=3, topCharacter ilvl=1702 |
+| GET /api/weekly/:name | `마에스트로` | 200 | `lostark-openapi` | false | 0 | characters=8, roiFollowups=2 |
+
+### 없는 캐릭터 404 동작
+
+| input | status | error.code | result |
+|---|---:|---|---|
+| `아르데타인` (미존재) | **404** | `CHARACTER_NOT_FOUND` | "마에스트로" 캐릭터 없음 정상 처리 |
+
+> **버그 수정 완료**:
+> - Bug 1: `gemRes.value.data.Gems` → LostArk API가 보석 없는 캐릭터에 null 반환 → `gemRes.value.data?.Gems ?? []` 수정
+> - Bug 2: `profile.CharacterName` throw → LostArk API가 비존재 캐릭터에 HTTP 200 + null body 반환 → `|| !profileRes.value.data` 가드 추가
 
 ---
 
@@ -54,38 +76,33 @@
 | 없는 id DELETE | DELETE /api/saved/:id | `nonexistent-id` | **404** | `SAVED_NOT_FOUND` | "id=nonexistent-id 저장 항목을 찾을 수 없습니다." |
 | POST 필수 필드 누락 | POST /api/saved | `{"type":"character"}` | **400** | `INVALID_BODY` | "type, key, label 필드가 필요합니다." |
 | API 키 누락 | GET /api/character/:name | any | 200 | — | IS_MOCK_MODE=true → mock 데이터 정상 반환 |
-| 잘못된 API 키 | (mock mode 불가) | — | — | — | **미테스트**: 아래 예상 동작 참조 |
+| 잘못된 API 키 | GET /api/character/:name | — | **401** | `AUTH_INVALID_KEY` | LostArk API 401 → `LostArkAuthError` → 401 반환 (구현 완료, 직접 테스트 미수행) |
 
-### 잘못된 API 키 예상 동작 (미테스트)
+### 잘못된 API 키 예상 동작 (구현 완료)
 
-| API | 예상 동작 |
+| API | 구현된 동작 |
 |---|---|
-| GET /api/character/:name | lostarkFetch → `!res.ok` → throw → `Promise.allSettled` profileRes=rejected → **404** `CHARACTER_NOT_FOUND` |
-| GET /api/expedition/:name | fetchExpeditionCharacters.catch(()→null) → siblingsRes=null → **404** `EXPEDITION_NOT_FOUND` |
-| GET /api/weekly/:name | fetchExpeditionCharacters.catch(()→null) → siblingsRes=null → **404** `WEEKLY_NOT_FOUND` |
-
-> **리스크**: 잘못된 API 키가 404로 응답되어 "캐릭터 없음"으로 오인될 수 있음. 401 전용 에러코드(`AUTH_ERROR`) 분리를 should 검토 항목으로 등록.
+| GET /api/character/:name | `LostArkAuthError` throw → catch 분기 → **401** `AUTH_INVALID_KEY` |
+| GET /api/expedition/:name | `LostArkAuthError` throw → catch 분기 → **401** `AUTH_INVALID_KEY` |
+| GET /api/weekly/:name | `LostArkAuthError` throw → catch 분기 → **401** `AUTH_INVALID_KEY` |
 
 ---
 
 ## 5. Findings
 
-### F1. 잘못된 API 키 → 404 오인 가능 (should 검토)
+### F1. ~~잘못된 API 키 → 404 오인 가능~~ → **수정 완료**
 
-현재 `lostarkFetch`가 `!res.ok`(401 포함) 시 Error를 throw하고, 이를 expedition/weekly route는 `.catch(()=>null)`로 받아 404(NOT_FOUND)로 변환한다.
-사용자 입장에서 API 키 오류와 없는 캐릭터가 동일하게 보인다.
-
-**권장**: `lostarkFetch`가 401 응답 시 전용 에러 객체(`LostArkAuthError`)를 throw하고, route에서 `instanceof` 분기로 `AUTH_INVALID_KEY` 에러코드와 5xx를 반환하도록 개선.
+`LostArkAuthError` 클래스를 추가하고 3개 route catch 블록에서 `instanceof` 분기로 `AUTH_INVALID_KEY` 에러코드와 HTTP 401을 반환하도록 수정.
+`API_SCHEMA.md` 에러 코드 표에도 반영 완료.
 
 ### F2. home route에 실 데이터 소스 없음 (문서화됨)
 
 `GET /api/home`은 API 키 유무와 무관하게 항상 fallback/mock 데이터를 반환한다 (`partial=true`, `source=["fallback","mock"]`).
 이 정책은 TODO 주석에 명시되어 있으며, 홈 실데이터 소스(공지/추천 콘텐츠) 연동은 MVP 이후 과제다.
 
-### F3. API 키 기준 실데이터 검증 미완료 (blocked)
+### F3. ~~API 키 기준 실데이터 검증 미완료~~ → **완료**
 
-`LOSTARK_API_KEY` 미설정으로 S5-T2, S5-T3, S5-T4(실데이터 QA)는 수행 불가.
-Mock mode의 정상 동작은 검증됨.
+`LOSTARK_API_KEY` 설정 후 S5-T2(character), S5-T3(expedition), S5-T4(weekly) 모두 실데이터로 검증 완료.
 
 ---
 
@@ -93,7 +110,7 @@ Mock mode의 정상 동작은 검증됨.
 
 | 우선순위 | 항목 | 근거 |
 |---:|---|---|
-| P0 | `LOSTARK_API_KEY` 설정 후 실데이터 QA 수행 | S5-T2~T4 완료 필요 |
-| P1 | 잘못된 API 키 → `AUTH_INVALID_KEY` 에러코드 분리 | F1: 오인 가능 UX 개선 |
+| P0 | ~~`LOSTARK_API_KEY` 설정 후 실데이터 QA 수행~~ ✅ | 완료 |
+| P1 | ~~잘못된 API 키 → `AUTH_INVALID_KEY` 에러코드 분리~~ ✅ | 완료 |
 | P2 | Tooltip 파싱 우선순위 표 작성 | 장비 quality/level, 보석 skill 현재 0/빈 값 |
 | P3 | saved store 영속화 후보 비교 (구현 아님) | in-memory 한계 문서화 |

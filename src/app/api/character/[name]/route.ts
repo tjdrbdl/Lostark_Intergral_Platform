@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { makeSuccess, makeError } from "@/types/api";
 import {
   IS_MOCK_MODE,
+  LostArkAuthError,
   fetchCharacterProfile,
   fetchCharacterEquipment,
   fetchCharacterGems,
@@ -46,8 +47,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
         fetchExpeditionCharacters(characterName),
       ]);
 
-    // 프로필은 필수 — 실패 시 전체 실패 반환
-    if (profileRes.status === "rejected") {
+    // 프로필은 필수 — 실패 또는 null 응답(200+null) 시 전체 실패 반환
+    if (profileRes.status === "rejected" || !profileRes.value.data) {
       return NextResponse.json(
         makeError(
           "CHARACTER_NOT_FOUND",
@@ -72,7 +73,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const profile = profileRes.value.data;
     const equipment = equipRes.status === "fulfilled" ? (equipRes.value.data ?? []) : [];
     const gems =
-      gemRes.status === "fulfilled" ? (gemRes.value.data.Gems ?? []) : [];
+      gemRes.status === "fulfilled" ? (gemRes.value.data?.Gems ?? []) : [];
     const engravings =
       engravingRes.status === "fulfilled" ? (engravingRes.value.data?.Engravings ?? []) : [];
     const siblings =
@@ -101,6 +102,12 @@ export async function GET(_req: NextRequest, { params }: Params) {
       )
     );
   } catch (err) {
+    if (err instanceof LostArkAuthError) {
+      return NextResponse.json(
+        makeError("AUTH_INVALID_KEY", err.message, { source: "lostark-openapi", fetchedAt }),
+        { status: 401 }
+      );
+    }
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(
       makeError("CHARACTER_FETCH_ERROR", message, {

@@ -19,6 +19,14 @@ interface FetchOptions {
   revalidate?: number;
 }
 
+/** API 인증 실패 전용 에러 — 잘못된 키 또는 만료된 키 */
+export class LostArkAuthError extends Error {
+  constructor() {
+    super("LostArk API 인증 실패: API 키가 잘못되었거나 만료되었습니다.");
+    this.name = "LostArkAuthError";
+  }
+}
+
 async function lostarkFetch<T>(
   path: string,
   options: FetchOptions = {}
@@ -38,6 +46,10 @@ async function lostarkFetch<T>(
     next: { revalidate: options.revalidate ?? 300 },
   });
 
+  if (res.status === 401) {
+    throw new LostArkAuthError();
+  }
+
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`LostArk API error ${res.status}: ${text}`);
@@ -47,9 +59,9 @@ async function lostarkFetch<T>(
   return { data, fetchedAt };
 }
 
-/** 캐릭터 기본 프로필 조회 */
+/** 캐릭터 기본 프로필 조회 — 존재하지 않으면 null 반환 가능 */
 export async function fetchCharacterProfile(characterName: string) {
-  return lostarkFetch<LostArkCharacterProfile>(
+  return lostarkFetch<LostArkCharacterProfile | null>(
     `/armories/characters/${encodeURIComponent(characterName)}/profiles`,
     { revalidate: 300 }
   );
@@ -63,9 +75,9 @@ export async function fetchCharacterEquipment(characterName: string) {
   );
 }
 
-/** 캐릭터 보석 조회 */
+/** 캐릭터 보석 조회 — 보석 없으면 null 반환 가능 */
 export async function fetchCharacterGems(characterName: string) {
-  return lostarkFetch<{ Gems: LostArkGem[] }>(
+  return lostarkFetch<{ Gems: LostArkGem[] | null } | null>(
     `/armories/characters/${encodeURIComponent(characterName)}/gems`,
     { revalidate: 300 }
   );

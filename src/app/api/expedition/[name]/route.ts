@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { makeSuccess, makeError } from "@/types/api";
 import {
   IS_MOCK_MODE,
+  LostArkAuthError,
   fetchCharacterProfile,
   fetchCharacterEquipment,
   fetchCharacterGems,
@@ -81,11 +82,11 @@ export async function GET(_req: NextRequest, { params }: Params) {
         fetchCharacterEngravings(topCharacterName),
       ]);
 
-      if (profileRes.status === "fulfilled") {
+      if (profileRes.status === "fulfilled" && profileRes.value.data) {
         const equipment =
           equipRes.status === "fulfilled" ? (equipRes.value.data ?? []) : [];
         const gems =
-          gemRes.status === "fulfilled" ? (gemRes.value.data.Gems ?? []) : [];
+          gemRes.status === "fulfilled" ? (gemRes.value.data?.Gems ?? []) : [];
         const engravings =
           engravingRes.status === "fulfilled" ? (engravingRes.value.data?.Engravings ?? []) : [];
         topCharacter = normalizeCharacterProfile(
@@ -122,6 +123,12 @@ export async function GET(_req: NextRequest, { params }: Params) {
       })
     );
   } catch (err) {
+    if (err instanceof LostArkAuthError) {
+      return NextResponse.json(
+        makeError("AUTH_INVALID_KEY", err.message, { source: "lostark-openapi", fetchedAt }),
+        { status: 401 }
+      );
+    }
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(
       makeError("EXPEDITION_FETCH_ERROR", message, {

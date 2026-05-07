@@ -36,6 +36,7 @@
 |---|---|---|
 | `INVALID_NAME` | 400 | 이름 파라미터 비어 있음 |
 | `CHARACTER_NOT_FOUND` | 404 | 해당 캐릭터 없음 (API 404 또는 프로필 조회 실패) |
+| `AUTH_INVALID_KEY` | 401 | API 키가 잘못되었거나 만료됨 |
 | `CHARACTER_FETCH_ERROR` | 500 | 서버 내부 오류 |
 
 partial=true 케이스: 장비/보석/각인/원정대 목록 중 일부 실패 시 `warnings`에 상세 항목 포함.
@@ -46,6 +47,7 @@ partial=true 케이스: 장비/보석/각인/원정대 목록 중 일부 실패 
 |---|---|---|
 | `INVALID_NAME` | 400 | 이름 파라미터 비어 있음 |
 | `EXPEDITION_NOT_FOUND` | 404 | 원정대 캐릭터 목록 없음 (API 실패 또는 null 반환) |
+| `AUTH_INVALID_KEY` | 401 | API 키가 잘못되었거나 만료됨 |
 | `EXPEDITION_FETCH_ERROR` | 500 | 서버 내부 오류 |
 
 partial=true 케이스: 대표 캐릭터 상세 조회 실패 시 `topCharacter=null`로 반환하고 `warnings` 포함.
@@ -56,6 +58,7 @@ partial=true 케이스: 대표 캐릭터 상세 조회 실패 시 `topCharacter=
 |---|---|---|
 | `INVALID_NAME` | 400 | 이름 파라미터 비어 있음 |
 | `WEEKLY_NOT_FOUND` | 404 | 원정대 캐릭터 목록 없음 (API 실패 또는 null 반환) |
+| `AUTH_INVALID_KEY` | 401 | API 키가 잘못되었거나 만료됨 |
 | `WEEKLY_FETCH_ERROR` | 500 | 서버 내부 오류 |
 
 #### API 키 정책
@@ -63,7 +66,7 @@ partial=true 케이스: 대표 캐릭터 상세 조회 실패 시 `topCharacter=
 | 상황 | 동작 |
 |---|---|
 | `LOSTARK_API_KEY` 미설정 | `IS_MOCK_MODE=true` → mock 데이터 반환, `source: ["mock"]` |
-| `LOSTARK_API_KEY` 잘못됨 | LostArk API 401 → `CHARACTER_FETCH_ERROR` / `EXPEDITION_FETCH_ERROR` / `WEEKLY_FETCH_ERROR` 500 |
+| `LOSTARK_API_KEY` 잘못됨 | LostArk API 401 → `LostArkAuthError` throw → `AUTH_INVALID_KEY` 401 반환 |
 | 외부 API 일부 실패 | `partial: true`, `warnings` 배열에 항목 포함 |
 
 ### 저장 쓰기 (Write)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { makeSuccess, makeError } from "@/types/api";
 import {
   IS_MOCK_MODE,
+  LostArkAuthError,
   fetchExpeditionCharacters,
 } from "@/lib/lostark-api";
 import { normalizeSiblings } from "@/lib/normalize";
@@ -122,6 +123,12 @@ export async function GET(_req: NextRequest, { params }: Params) {
       })
     );
   } catch (err) {
+    if (err instanceof LostArkAuthError) {
+      return NextResponse.json(
+        makeError("AUTH_INVALID_KEY", err.message, { source: "lostark-openapi", fetchedAt }),
+        { status: 401 }
+      );
+    }
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(
       makeError("WEEKLY_FETCH_ERROR", message, {
