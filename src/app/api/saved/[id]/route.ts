@@ -49,6 +49,13 @@ export async function PATCH(req: NextRequest, { params }: Props) {
       patch.label = body.label.trim();
     }
 
+    if (Object.keys(patch).length === 0) {
+      return NextResponse.json(
+        makeError("INVALID_BODY", "수정 필드(pinned, tags, label) 중 하나 이상을 포함해야 합니다.", { source: ["memory"] }),
+        { status: 400 }
+      );
+    }
+
     const updated = savedStorePatch(id, patch);
     if (!updated) {
       return NextResponse.json(

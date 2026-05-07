@@ -26,7 +26,7 @@ async function getExpeditionData(name: string): Promise<ApiResponse<ExpeditionDa
 async function getSavedData(): Promise<ApiResponse<SavedData>> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-    const res = await fetch(`${baseUrl}/api/saved`, { next: { revalidate: 60 } });
+    const res = await fetch(`${baseUrl}/api/saved`, { cache: "no-store" });
     return res.json();
   } catch {
     return {

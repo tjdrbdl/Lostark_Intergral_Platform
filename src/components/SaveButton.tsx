@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { SavedItem } from "@/types/saved";
 
 interface SaveButtonProps {
@@ -17,6 +18,7 @@ interface SaveButtonProps {
 }
 
 export default function SaveButton({ savedItem, target, onToggle }: SaveButtonProps) {
+  const router = useRouter();
   const [optimistic, setOptimistic] = useState<SavedItem | null>(savedItem);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -56,6 +58,7 @@ export default function SaveButton({ savedItem, target, onToggle }: SaveButtonPr
         }
         setOptimistic(json.data.item as SavedItem);
         onToggle?.(json.data.item as SavedItem);
+        router.refresh();
       } catch {
         setOptimistic(savedItem);
         setError("저장 요청 중 오류가 발생했습니다.");
@@ -81,6 +84,7 @@ export default function SaveButton({ savedItem, target, onToggle }: SaveButtonPr
           return;
         }
         onToggle?.(null);
+        router.refresh();
       } catch {
         setOptimistic(prevItem);
         setError("저장 해제 요청 중 오류가 발생했습니다.");
