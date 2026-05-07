@@ -6,6 +6,7 @@ import type { SavedData } from "@/types/saved";
 import SpecSummary from "@/components/character/SpecSummary";
 import ErrorBanner from "@/components/ui/ErrorBanner";
 import PartialWarning from "@/components/ui/PartialWarning";
+import SaveButton from "@/components/SaveButton";
 import Link from "next/link";
 
 type Props = { params: Promise<{ name: string }> };
@@ -91,6 +92,25 @@ export default async function CharacterPage({ params }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* 제목 + 저장 버튼 */}
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-white">{data.character.characterName}</h1>
+        <SaveButton
+          savedItem={
+            savedResult.success
+              ? (savedResult.data.items.find(
+                  (i) => i.type === "character" && i.key === characterName
+                ) ?? null)
+              : null
+          }
+          target={{
+            type: "character",
+            key: characterName,
+            label: characterName,
+          }}
+        />
+      </div>
+
       {/* 부분 성공 경고 */}
       <PartialWarning warnings={mergedWarnings} stale={mergedStale} />
 

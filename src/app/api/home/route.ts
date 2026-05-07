@@ -12,13 +12,14 @@ export async function GET() {
       );
     }
 
-    // TODO: 실제 로스트아크 공지 API가 없으므로 현재 빈 배열 반환
-    // 제거 기준: 공식 공지 API 엔드포인트 확보 및 연동 완료 시
-    const data: HomeData = { notices: [], featuredContents: [] };
+    // TODO: 실데이터 소스 미연동 상태에서는 UI 공백을 피하기 위해 샘플 데이터를 fallback 반환
+    // 제거 기준: 홈 데이터 실소스(공지/추천 콘텐츠) 연동 완료 시
     return NextResponse.json(
-      makeSuccess<HomeData>(data, {
-        source: "lostark-openapi",
+      makeSuccess<HomeData>(MOCK_HOME, {
+        source: ["fallback", "mock"],
         fetchedAt: new Date().toISOString(),
+        partial: true,
+        warnings: ["홈 실데이터 소스 미연동: 샘플 데이터를 표시합니다."],
       })
     );
   } catch (err) {

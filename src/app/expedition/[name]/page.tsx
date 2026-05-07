@@ -9,6 +9,7 @@ import SpecSummary from "@/components/character/SpecSummary";
 import ErrorBanner from "@/components/ui/ErrorBanner";
 import EmptyState from "@/components/ui/EmptyState";
 import PartialWarning from "@/components/ui/PartialWarning";
+import SaveButton from "@/components/SaveButton";
 import Link from "next/link";
 
 type Props = { params: Promise<{ name: string }> };
@@ -101,16 +102,32 @@ export default async function ExpeditionPage({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-white">
           {data.representativeName} 원정대
         </h1>
-        <Link
-          href={`/weekly/${encodeURIComponent(characterName)}`}
-          className="rounded-lg border border-lostark-border bg-lostark-panel px-4 py-2 text-sm text-gray-300 hover:border-lostark-gold transition-colors"
-        >
-          주간 체크 →
-        </Link>
+        <div className="flex items-center gap-2">
+          <SaveButton
+            savedItem={
+              savedResult.success
+                ? (savedResult.data.items.find(
+                    (i) => i.type === "expedition" && i.key === data.representativeName
+                  ) ?? null)
+                : null
+            }
+            target={{
+              type: "expedition",
+              key: data.representativeName,
+              label: `${data.representativeName} 원정대`,
+            }}
+          />
+          <Link
+            href={`/weekly/${encodeURIComponent(characterName)}`}
+            className="rounded-lg border border-lostark-border bg-lostark-panel px-4 py-2 text-sm text-gray-300 hover:border-lostark-gold transition-colors"
+          >
+            주간 체크 →
+          </Link>
+        </div>
       </div>
 
       <PartialWarning warnings={mergedWarnings} stale={mergedStale} />
