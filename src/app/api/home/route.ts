@@ -25,7 +25,7 @@ export async function GET() {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(
-      makeError("HOME_FETCH_ERROR", message, { source: "lostark-openapi" }),
+      makeError("HOME_FETCH_ERROR", message, { source: "unknown" }),
       { status: 500 }
     );
   }

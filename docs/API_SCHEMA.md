@@ -4,7 +4,7 @@
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | `success` | boolean | 요청 성공 여부 |
-| `source` | string[] | 데이터 소스 목록 (`mock`, `lostark-api`, `memory`, `fallback` 등) |
+| `source` | string[] | 데이터 소스 목록 (`mock`, `lostark-openapi`, `memory`, `fallback` 등) |
 | `fetchedAt` | string \| null | 데이터 취득 시각 (ISO 8601) |
 | `cachedAt` | string \| null | 캐시 저장 시각 |
 | `stale` | boolean | 캐시 만료 여부 |
@@ -18,7 +18,8 @@
 | `mock` | `LOSTARK_API_KEY` 미설정 시 in-memory mock 데이터 반환 |
 | `lostark-openapi` | 실제 LostArk Open API 호출 성공 |
 | `memory` | in-memory saved store 조회/쓰기 |
-| `unknown` | 출처 미확인 (fallback) |
+| `fallback` | 실데이터 소스 미연동 또는 캐시 없음 시 mock/샘플 데이터로 대체 |
+| `unknown` | 출처 미확인 (서버 내부 오류 등) |
 
 ## 엔드포인트
 
