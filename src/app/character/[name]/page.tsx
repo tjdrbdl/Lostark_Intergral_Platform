@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import type { ApiResponse } from "@/types/api";
 import type { CharacterData } from "@/types/character";
 import type { SavedData } from "@/types/saved";
 import SpecSummary from "@/components/character/SpecSummary";
@@ -8,37 +7,9 @@ import ErrorBanner from "@/components/ui/ErrorBanner";
 import PartialWarning from "@/components/ui/PartialWarning";
 import SaveButton from "@/components/SaveButton";
 import Link from "next/link";
+import { getCharacterData, getSavedData } from "@/lib/server-data";
 
 type Props = { params: Promise<{ name: string }> };
-
-async function getCharacterData(name: string): Promise<ApiResponse<CharacterData>> {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-  const res = await fetch(
-    `${baseUrl}/api/character/${encodeURIComponent(name)}`,
-    { next: { revalidate: 300 } }
-  );
-  return res.json();
-}
-
-async function getSavedData(): Promise<ApiResponse<SavedData>> {
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-    const res = await fetch(`${baseUrl}/api/saved`, { cache: "no-store" });
-    return res.json();
-  } catch {
-    return {
-      success: false,
-      data: null,
-      error: { code: "SAVED_FETCH_ERROR", message: "저장/변경 정보를 불러올 수 없습니다." },
-      source: ["unknown"],
-      fetchedAt: null,
-      cachedAt: null,
-      stale: false,
-      partial: false,
-      warnings: [],
-    };
-  }
-}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { name } = await params;

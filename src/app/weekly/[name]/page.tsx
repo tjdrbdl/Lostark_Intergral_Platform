@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import type { ApiResponse } from "@/types/api";
 import type { WeeklyData } from "@/types/weekly";
 import type { SavedData } from "@/types/saved";
 import WeeklyChecklist from "@/components/weekly/WeeklyChecklist";
@@ -9,37 +8,9 @@ import ErrorBanner from "@/components/ui/ErrorBanner";
 import EmptyState from "@/components/ui/EmptyState";
 import PartialWarning from "@/components/ui/PartialWarning";
 import Link from "next/link";
+import { getWeeklyData, getSavedData } from "@/lib/server-data";
 
 type Props = { params: Promise<{ name: string }> };
-
-async function getWeeklyData(name: string): Promise<ApiResponse<WeeklyData>> {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-  const res = await fetch(
-    `${baseUrl}/api/weekly/${encodeURIComponent(name)}`,
-    { next: { revalidate: 60 } }
-  );
-  return res.json();
-}
-
-async function getSavedData(): Promise<ApiResponse<SavedData>> {
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-    const res = await fetch(`${baseUrl}/api/saved`, { cache: "no-store" });
-    return res.json();
-  } catch {
-    return {
-      success: false,
-      data: null,
-      error: { code: "SAVED_FETCH_ERROR", message: "저장/변경 정보를 불러올 수 없습니다." },
-      source: ["unknown"],
-      fetchedAt: null,
-      cachedAt: null,
-      stale: false,
-      partial: false,
-      warnings: [],
-    };
-  }
-}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { name } = await params;

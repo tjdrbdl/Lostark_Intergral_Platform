@@ -1,249 +1,81 @@
+import Link from "next/link";
 import SearchBar from "@/components/SearchBar";
 import type { HomeData } from "@/types/home";
 import type { SavedData } from "@/types/saved";
-import type { ApiResponse } from "@/types/api";
-import ErrorBanner from "@/components/ui/ErrorBanner";
-import EmptyState from "@/components/ui/EmptyState";
+import { getHomeData, getSavedData } from "@/lib/server-data";
 import PartialWarning from "@/components/ui/PartialWarning";
-import Link from "next/link";
-
-async function getHomeData(): Promise<ApiResponse<HomeData>> {
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-    const res = await fetch(`${baseUrl}/api/home`, { next: { revalidate: 300 } });
-    return res.json();
-  } catch {
-    return {
-      success: false,
-      data: null,
-      error: { code: "HOME_FETCH_ERROR", message: "홈 데이터를 불러올 수 없습니다." },
-      source: ["unknown"],
-      fetchedAt: null,
-      cachedAt: null,
-      stale: false,
-      partial: false,
-      warnings: [],
-    };
-  }
-}
-
-async function getSavedData(): Promise<ApiResponse<SavedData>> {
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-    const res = await fetch(`${baseUrl}/api/saved`, { cache: "no-store" });
-    return res.json();
-  } catch {
-    return {
-      success: false,
-      data: null,
-      error: { code: "SAVED_FETCH_ERROR", message: "저장 목록을 불러올 수 없습니다." },
-      source: ["unknown"],
-      fetchedAt: null,
-      cachedAt: null,
-      stale: false,
-      partial: false,
-      warnings: [],
-    };
-  }
-}
 
 export default async function HomePage() {
   const [homeResult, savedResult] = await Promise.all([
-    getHomeData(),
-    getSavedData(),
+    getHomeData(), getSavedData(),
   ]);
-
-  const homeData = homeResult.success ? homeResult.data : null;
-  const savedData = savedResult.success ? savedResult.data : null;
-
-  // partial 판단: 일부만 성공
-  const warnings: string[] = [];
-  if (!homeResult.success) warnings.push("홈 데이터 일부를 불러오지 못했습니다.");
-  if (!savedResult.success) warnings.push("저장 목록을 불러오지 못했습니다.");
+  const home = homeResult?.success ? homeResult.data : null;
+  const saved = savedResult?.success ? savedResult.data : null;
+  const warnings = [
+    ...(homeResult?.success ? homeResult.warnings : []),
+    ...(savedResult?.success ? savedResult.warnings : []),
+    !home && "공지 데이터를 불러오지 못했습니다.",
+    !saved && "저장 목록을 불러오지 못했습니다.",
+  ].filter(Boolean) as string[];
 
   return (
-    <div className="space-y-10">
-      {/* 히어로 섹션 */}
-      <section className="flex flex-col items-center gap-6 py-10 text-center">
-        <h1 className="text-3xl font-bold text-white">
-          로스트아크 통합 데이터 허브
-        </h1>
-        <p className="text-gray-400 max-w-md">
-          캐릭터 스펙, 원정대 현황, 주간 숙제를 한 번에 확인하세요.
-        </p>
-        <SearchBar />
+    <div className="pb-16">
+      <section className="hero-grid relative overflow-hidden rounded-[2rem] border border-white/10 px-6 py-14 sm:px-12 sm:py-20">
+        <div className="relative z-10 max-w-3xl">
+          <div className="mb-7 flex items-center gap-3 text-xs font-bold tracking-[.18em] text-amber-300">
+            <span className="h-px w-8 bg-amber-300" /> EXPEDITION COMMAND CENTER
+          </div>
+          <h1 className="break-keep text-4xl font-black leading-[1.08] tracking-[-.05em] text-white sm:text-6xl">
+            여러 탭을 닫고,<br/><span className="text-gradient">이번 주의 답만 보세요.</span>
+          </h1>
+          <p className="mt-6 max-w-xl break-keep text-base leading-7 text-slate-300 sm:text-lg">
+            캐릭터 스펙, 원정대 숙제, 투자 효율을 한 흐름으로 연결합니다. 지금 가장 먼저 챙길 캐릭터와 골드 사용처를 확인하세요.
+          </p>
+          <div className="mt-9"><SearchBar /></div>
+        </div>
+        <div className="orb absolute -right-24 -top-20 h-96 w-96 rounded-full" />
       </section>
 
-      {/* partial/stale 경고 */}
-      {warnings.length > 0 && (
-        <PartialWarning warnings={warnings} stale={homeResult.success && homeResult.stale} />
-      )}
-
-      {/* 전체 실패 */}
-      {!homeData && !savedData && (
-        <ErrorBanner
-          title="데이터를 불러오지 못했습니다"
-          message="서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요."
-        />
-      )}
-
-      {/* 저장 목록 미리보기 */}
-      {savedData && (
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-gray-400 uppercase tracking-widest">
-            저장 목록
-          </h2>
-          {savedData.items.length === 0 ? (
-            <EmptyState
-              message="저장된 항목이 없습니다. 캐릭터나 원정대를 검색하고 저장해보세요."
-              icon="📌"
-            />
-          ) : (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {savedData.items.map((item) => {
-                const href =
-                  item.type === "expedition"
-                    ? `/expedition/${encodeURIComponent(item.key)}`
-                    : item.type === "character"
-                    ? `/character/${encodeURIComponent(item.key)}`
-                    : `/expedition/${encodeURIComponent(item.key)}`;
-                return (
-                  <Link
-                    key={item.id}
-                    href={href}
-                    className="flex items-center justify-between rounded-lg border border-lostark-border bg-lostark-panel px-4 py-3 text-sm transition-colors hover:border-lostark-gold"
-                  >
-                    <div className="flex items-center gap-2">
-                      {item.pinned && <span className="text-lostark-gold">📌</span>}
-                      <span className="font-semibold text-white">{item.label}</span>
-                      {item.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="rounded bg-lostark-navy px-1.5 py-0.5 text-xs text-gray-400"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                    <span className="text-xs text-gray-500">
-                      {item.type === "expedition" ? "원정대" : item.type === "character" ? "캐릭터" : "검색"}
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* 최근 변경 이벤트 */}
-      {savedData && savedData.changeEvents.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-gray-400 uppercase tracking-widest">
-            최근 변경 사항
-          </h2>
-          <ul className="space-y-2">
-            {savedData.changeEvents.map((event) => (
-              <li
-                key={event.id}
-                className="flex items-start gap-3 rounded-lg border border-lostark-border bg-lostark-panel px-4 py-3 text-sm"
-              >
-                <span
-                  className={`mt-0.5 rounded px-1.5 py-0.5 text-xs font-semibold ${
-                    event.severity === "high"
-                      ? "bg-red-800/60 text-red-300"
-                      : event.severity === "mid"
-                      ? "bg-yellow-800/60 text-yellow-300"
-                      : "bg-blue-800/60 text-blue-300"
-                  }`}
-                >
-                  {event.eventType === "spec_change"
-                    ? "스펙"
-                    : event.eventType === "weekly_change"
-                    ? "숙제"
-                    : event.eventType === "market_change"
-                    ? "시장"
-                    : "데이터"}
-                </span>
-                <div className="flex-1">
-                  <p className="text-white">{event.summary}</p>
-                  <p className="mt-0.5 text-xs text-gray-500">
-                    {new Date(event.detectedAt).toLocaleString("ko-KR")}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* 점검/공지 배너 */}
-      {homeData && homeData.notices.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-gray-400 uppercase tracking-widest">
-            공지 / 점검
-          </h2>
-          <ul className="space-y-2">
-            {homeData.notices.map((notice) => (
-              <li
-                key={notice.id}
-                className="rounded-lg border border-lostark-border bg-lostark-panel px-4 py-3 text-sm"
-              >
-                <span
-                  className={`mr-2 rounded px-1.5 py-0.5 text-xs font-semibold ${
-                    notice.type === "maintenance"
-                      ? "bg-yellow-800/60 text-yellow-300"
-                      : notice.type === "update"
-                      ? "bg-blue-800/60 text-blue-300"
-                      : "bg-green-800/60 text-green-300"
-                  }`}
-                >
-                  {notice.type === "maintenance"
-                    ? "점검"
-                    : notice.type === "update"
-                    ? "업데이트"
-                    : "이벤트"}
-                </span>
-                {notice.url ? (
-                  <a
-                    href={notice.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-white hover:underline"
-                  >
-                    {notice.title}
-                  </a>
-                ) : (
-                  <span className="text-white">{notice.title}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* 추천 콘텐츠 */}
-      {homeData && homeData.featuredContents.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-gray-400 uppercase tracking-widest">
-            이번 주 추천 레이드
-          </h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {homeData.featuredContents.map((content) => (
-              <div
-                key={content.id}
-                className="rounded-xl border border-lostark-border bg-lostark-panel p-4"
-              >
-                <p className="text-xs text-gray-400">{content.category}</p>
-                <p className="mt-1 font-semibold text-white">{content.name}</p>
-                <p className="mt-1 text-sm text-lostark-gold">
-                  {content.recommendedItemLevel.toLocaleString()} ℓ 이상
-                </p>
-              </div>
-            ))}
+      {warnings.length > 0 && <div className="mt-6"><PartialWarning warnings={warnings} stale={homeResult?.success ? homeResult.stale : false}/></div>}
+      {homeResult?.success && (homeResult.partial || homeResult.warnings.length > 0) && (
+        <div className="mt-3 rounded-lg border border-white/10 bg-white/[.03] px-4 py-3 text-xs text-slate-400">
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            <span>데이터 상태: {homeResult.partial ? "부분 성공" : "성공"}</span>
+            <span>출처: {homeResult.source.join(", ")}</span>
+            <span>조회 시각: {homeResult.fetchedAt ? new Date(homeResult.fetchedAt).toLocaleString("ko-KR") : "-"}</span>
           </div>
-        </section>
+        </div>
       )}
+
+      <section className="mt-14 grid gap-4 md:grid-cols-3">
+        {[
+          ["01", "원정대 한눈에", "캐릭터별 핵심 스펙과 주간 상태를 한 보드에서 비교합니다."],
+          ["02", "설명 가능한 ROI", "추천 점수뿐 아니라 예상 비용과 추천 이유까지 함께 보여줍니다."],
+          ["03", "저장하고 변화 추적", "매번 검색하지 않아도 저장한 원정대의 중요한 변화를 먼저 확인합니다."],
+        ].map(([no, title, body]) => <article key={no} className="glass-card rounded-2xl p-6">
+          <span className="text-xs font-black tracking-widest text-amber-300/70">{no}</span>
+          <h2 className="mt-8 text-xl font-bold text-white">{title}</h2><p className="mt-3 break-keep text-sm leading-6 text-slate-400">{body}</p>
+        </article>)}
+      </section>
+
+      <section className="mt-16 grid gap-6 lg:grid-cols-[1.2fr_.8fr]">
+        <div>
+          <div className="mb-5 flex items-end justify-between"><div><p className="eyebrow">MY ROSTER</p><h2 className="mt-2 text-2xl font-bold text-white">저장한 원정대</h2></div><span className="text-xs text-slate-500">최근 확인 순</span></div>
+          <div className="space-y-3">
+            {saved?.items.length ? saved.items.filter((item) => item.type !== "query").slice(0, 3).map((item) => <Link key={item.id} href={`/${item.type === "character" ? "character" : "expedition"}/${encodeURIComponent(item.key)}`} className="group flex items-center justify-between rounded-2xl border border-white/10 bg-white/[.035] p-5 hover:border-amber-300/40">
+              <div><div className="flex items-center gap-2"><span className="font-bold text-white">{item.label}</span>{item.pinned && <span className="text-amber-300">◆</span>}</div><p className="mt-1 text-xs text-slate-500">{item.tags.join(" · ") || "저장됨"}</p></div><span className="text-slate-500 transition group-hover:translate-x-1 group-hover:text-amber-300">→</span>
+            </Link>) : <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-sm text-slate-500">검색한 원정대를 저장하면 여기에 모아볼 수 있어요.</div>}
+          </div>
+        </div>
+        <aside className="rounded-2xl border border-amber-300/15 bg-amber-300/[.045] p-6">
+          <p className="eyebrow">RECENT SIGNALS</p><h2 className="mt-2 text-2xl font-bold text-white">최근 변화</h2>
+          <div className="mt-6 space-y-5">
+            {saved?.changeEvents.length ? saved.changeEvents.slice(0,3).map(event => <div key={event.id} className="border-l border-amber-300/30 pl-4"><p className="text-sm leading-6 text-slate-200">{event.summary}</p><p className="mt-1 text-[11px] text-slate-500">{new Date(event.detectedAt).toLocaleString("ko-KR")}</p></div>) : <p className="text-sm text-slate-500">아직 감지된 변화가 없습니다.</p>}
+          </div>
+        </aside>
+      </section>
+
+      {home?.featuredContents.length ? <section className="mt-16"><p className="eyebrow">WEEKLY CONTENT</p><h2 className="mt-2 text-2xl font-bold text-white">이번 주 레이드 기준선</h2><div className="mt-5 grid gap-3 sm:grid-cols-3">{home.featuredContents.map(content => <div key={content.id} className="rounded-2xl border border-white/10 p-5"><p className="text-xs text-slate-500">{content.category}</p><p className="mt-3 font-bold text-white">{content.name}</p><p className="mt-1 text-sm font-semibold text-amber-300">Lv. {content.recommendedItemLevel.toLocaleString()}+</p></div>)}</div></section> : null}
     </div>
   );
 }

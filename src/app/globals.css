@@ -2,12 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --color-bg: #0A0E14;
-}
-
-body {
-  background-color: var(--color-bg);
-  color: #f0f0f0;
-  font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
-}
+:root { --ink:#080b10; --gold:#e7bd65; }
+* { box-sizing:border-box; }
+html { background:var(--ink); }
+body { margin:0; color:#f1f5f9; font-family:Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; background:radial-gradient(circle at 85% 0%,#1b2433 0,transparent 30rem),var(--ink); }
+a,button { transition:all .2s ease; }
+.hero-grid { background-color:#101722; background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px); background-size:42px 42px; }
+.orb { background:radial-gradient(circle,rgba(231,189,101,.28),rgba(90,113,154,.1) 45%,transparent 70%); filter:blur(4px); }
+.text-gradient { color:transparent; background:linear-gradient(90deg,#fff0bd,#e7bd65 55%,#a9bfe5); background-clip:text; -webkit-background-clip:text; }
+.glass-card { border:1px solid rgba(255,255,255,.09); background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018)); }
+.glass-card:hover { transform:translateY(-3px); border-color:rgba(231,189,101,.3); }
+.eyebrow { font-size:.68rem; font-weight:800; letter-spacing:.18em; color:#e7bd65; }
+::selection { background:#e7bd65; color:#080b10; }
