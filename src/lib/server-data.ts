@@ -7,6 +7,10 @@ import type { CharacterWeeklyStatus, WeeklyContent, WeeklyData } from "@/types/w
 import {
   IS_MOCK_MODE,
   LostArkAuthError,
+  LostArkNotFoundError,
+  LostArkRateLimitError,
+  LostArkRequestError,
+  LostArkUpstreamError,
   fetchCharacterEngravings,
   fetchCharacterEquipment,
   fetchCharacterGems,
@@ -16,18 +20,14 @@ import {
 import { normalizeCharacterProfile, normalizeSiblings } from "@/lib/normalize";
 import { buildRoiCardsV0, buildWeeklyRoiFollowups } from "@/lib/roi-engine";
 import { savedStoreGetAll } from "@/lib/saved-store";
+import { getNextWeeklyReset } from "@/lib/weekly-reset";
 import { MOCK_CHARACTER, MOCK_EXPEDITION, MOCK_HOME, MOCK_ROI_CARDS, MOCK_WEEKLY } from "@/lib/mock-data";
 
 const source = "lostark-openapi";
 const fetchedAt = () => new Date().toISOString();
 
 export function getHomeData(): ApiResponse<HomeData> {
-  if (IS_MOCK_MODE) {
-    return makeSuccess(MOCK_HOME, {
-      source: "mock",
-      warnings: ["현재 mock 샘플 데이터를 표시합니다."],
-    });
-  }
+  if (IS_MOCK_MODE) return makeSuccess(MOCK_HOME, { source: "mock", warnings: ["현재 mock 샘플 데이터를 표시합니다."] });
   return makeSuccess(MOCK_HOME, {
     source: ["fallback", "mock"], fetchedAt: fetchedAt(), partial: true,
     warnings: ["홈 실데이터 소스 미연동: 샘플을 표시합니다."],
@@ -42,8 +42,23 @@ export function getSavedData(): ApiResponse<SavedData> {
   }
 }
 
-function authError<T>(error: LostArkAuthError): ApiResponse<T> {
-  return makeError("AUTH_INVALID_KEY", error.message, { source, fetchedAt: fetchedAt() });
+function failure<T>(error: unknown, notFoundCode: string, at: string): ApiResponse<T> {
+  if (error instanceof LostArkAuthError) return makeError("AUTH_INVALID_KEY", error.message, { source, fetchedAt: at });
+  if (error instanceof LostArkNotFoundError) return makeError(notFoundCode, "요청한 데이터를 찾을 수 없습니다.", { source, fetchedAt: at });
+  if (error instanceof LostArkRateLimitError) return makeError("RATE_LIMITED", error.message, { source, fetchedAt: at });
+  if (error instanceof LostArkUpstreamError || error instanceof LostArkRequestError) return makeError("UPSTREAM_UNAVAILABLE", error.message, { source, fetchedAt: at });
+  return makeError("UPSTREAM_UNAVAILABLE", "외부 데이터 소스에 일시적으로 연결할 수 없습니다.", { source, fetchedAt: at });
+}
+
+function optionalWarning(error: unknown, label: string): string {
+  if (error instanceof LostArkRateLimitError) return `${label} 요청이 제한되었습니다.`;
+  if (error instanceof LostArkNotFoundError) return `${label} 데이터를 찾을 수 없습니다.`;
+  if (error instanceof LostArkUpstreamError || error instanceof LostArkRequestError) return `${label} 외부 데이터 소스를 사용할 수 없습니다.`;
+  return `${label} 정보를 불러오지 못했습니다.`;
+}
+
+function hasAuthFailure(results: PromiseSettledResult<unknown>[]) {
+  return results.find((result) => result.status === "rejected" && result.reason instanceof LostArkAuthError);
 }
 
 export async function getCharacterData(name: string): Promise<ApiResponse<CharacterData>> {
@@ -54,17 +69,16 @@ export async function getCharacterData(name: string): Promise<ApiResponse<Charac
       fetchCharacterProfile(name), fetchCharacterEquipment(name), fetchCharacterGems(name),
       fetchCharacterEngravings(name), fetchExpeditionCharacters(name),
     ]);
-    const rejected = [profileRes, equipRes, gemRes, engravingRes, siblingRes]
-      .find((result) => result.status === "rejected" && result.reason instanceof LostArkAuthError);
-    if (rejected?.status === "rejected") return authError(rejected.reason);
-    if (profileRes.status === "rejected" || !profileRes.value.data) {
-      return makeError("CHARACTER_NOT_FOUND", `캐릭터 '${name}'를 찾을 수 없습니다.`, { source, fetchedAt: at });
-    }
+    const authFailure = hasAuthFailure([profileRes, equipRes, gemRes, engravingRes, siblingRes]);
+    if (authFailure?.status === "rejected") return failure(authFailure.reason, "CHARACTER_NOT_FOUND", at);
+    if (profileRes.status === "rejected") return failure(profileRes.reason, "CHARACTER_NOT_FOUND", at);
+    if (!profileRes.value.data) return makeError("CHARACTER_NOT_FOUND", `캐릭터 '${name}'를 찾을 수 없습니다.`, { source, fetchedAt: at });
+
     const warnings: string[] = [];
-    if (equipRes.status === "rejected") warnings.push("장비 정보를 불러오지 못했습니다.");
-    if (gemRes.status === "rejected") warnings.push("보석 정보를 불러오지 못했습니다.");
-    if (engravingRes.status === "rejected") warnings.push("각인 정보를 불러오지 못했습니다.");
-    if (siblingRes.status === "rejected") warnings.push("원정대 캐릭터 목록을 불러오지 못했습니다.");
+    const optional = [
+      [equipRes, "장비"], [gemRes, "보석"], [engravingRes, "각인"], [siblingRes, "원정대 캐릭터 목록"],
+    ] as const;
+    for (const [result, label] of optional) if (result.status === "rejected") warnings.push(optionalWarning(result.reason, label));
     const equipment = equipRes.status === "fulfilled" ? equipRes.value.data ?? [] : [];
     const gems = gemRes.status === "fulfilled" ? gemRes.value.data?.Gems ?? [] : [];
     const engravings = engravingRes.status === "fulfilled" ? engravingRes.value.data?.Engravings ?? [] : [];
@@ -74,7 +88,7 @@ export async function getCharacterData(name: string): Promise<ApiResponse<Charac
       siblings: siblings.map((s) => ({ characterName: s.characterName, characterClass: s.characterClass, itemLevel: s.itemLevel })),
     }, { source, fetchedAt: at, partial: warnings.length > 0, warnings });
   } catch (error) {
-    return error instanceof LostArkAuthError ? authError(error) : makeError("CHARACTER_FETCH_ERROR", error instanceof Error ? error.message : "Unknown error", { source, fetchedAt: at });
+    return failure(error, "CHARACTER_NOT_FOUND", at);
   }
 }
 
@@ -82,24 +96,33 @@ export async function getExpeditionData(name: string): Promise<ApiResponse<Exped
   if (IS_MOCK_MODE) return makeSuccess({ ...MOCK_EXPEDITION, roiCards: MOCK_ROI_CARDS }, { source: "mock" });
   const at = fetchedAt();
   try {
-    const siblingsRes = await fetchExpeditionCharacters(name);
+    let siblingsRes;
+    try {
+      siblingsRes = await fetchExpeditionCharacters(name);
+    } catch (error) {
+      return failure(error, "EXPEDITION_NOT_FOUND", at);
+    }
     if (!siblingsRes.data?.length) return makeError("EXPEDITION_NOT_FOUND", `'${name}'의 원정대 정보를 찾을 수 없습니다.`, { source, fetchedAt: at });
     const allCharacters = normalizeSiblings(siblingsRes.data);
     const topName = allCharacters[0]?.characterName ?? name;
     const [profileRes, equipRes, gemRes, engravingRes] = await Promise.allSettled([
       fetchCharacterProfile(topName), fetchCharacterEquipment(topName), fetchCharacterGems(topName), fetchCharacterEngravings(topName),
     ]);
-    const auth = [profileRes, equipRes, gemRes, engravingRes].find((result) => result.status === "rejected" && result.reason instanceof LostArkAuthError);
-    if (auth?.status === "rejected") return authError(auth.reason);
+    const authFailure = hasAuthFailure([profileRes, equipRes, gemRes, engravingRes]);
+    if (authFailure?.status === "rejected") return failure(authFailure.reason, "EXPEDITION_NOT_FOUND", at);
     const warnings: string[] = [];
+    for (const [result, label] of [[profileRes, "대표 캐릭터"], [equipRes, "대표 캐릭터 장비"], [gemRes, "대표 캐릭터 보석"], [engravingRes, "대표 캐릭터 각인"]] as const) {
+      if (result.status === "rejected") warnings.push(optionalWarning(result.reason, label));
+    }
     let topCharacter = null;
     if (profileRes.status === "fulfilled" && profileRes.value.data) {
       topCharacter = normalizeCharacterProfile(profileRes.value.data, equipRes.status === "fulfilled" ? equipRes.value.data ?? [] : [], gemRes.status === "fulfilled" ? gemRes.value.data?.Gems ?? [] : [], engravingRes.status === "fulfilled" ? engravingRes.value.data?.Engravings ?? [] : []);
-    } else warnings.push("대표 캐릭터 상세 정보를 불러오지 못했습니다.");
+    } else if (profileRes.status === "fulfilled" && !profileRes.value.data) {
+      warnings.push("대표 캐릭터 데이터를 찾을 수 없습니다.");
+    }
     return makeSuccess({ representativeName: name, serverName: allCharacters[0]?.serverName ?? "", characters: allCharacters.map((c, i) => ({ ...c, isRepresentative: i === 0 })), topCharacter, totalCharacterCount: allCharacters.length, roiCards: buildRoiCardsV0(allCharacters, topCharacter) }, { source, fetchedAt: at, partial: warnings.length > 0, warnings });
   } catch (error) {
-    if (error instanceof LostArkAuthError) return authError(error);
-    return makeError("EXPEDITION_NOT_FOUND", `'${name}'의 원정대 정보를 찾을 수 없습니다.`, { source, fetchedAt: at });
+    return failure(error, "EXPEDITION_NOT_FOUND", at);
   }
 }
 
@@ -114,22 +137,22 @@ function getAvailableContents(itemLevel: number): WeeklyContent[] {
   ];
   return contents.filter((content) => itemLevel >= content.minItemLevel);
 }
-function getNextWeeklyReset() {
-  const now = new Date(); const reset = new Date(now); const days = (4 - now.getDay() + 7) % 7;
-  reset.setDate(now.getDate() + (days === 0 && now.getHours() >= 6 ? 7 : days)); reset.setHours(6, 0, 0, 0); return reset.toISOString();
-}
 
 export async function getWeeklyData(name: string): Promise<ApiResponse<WeeklyData>> {
   if (IS_MOCK_MODE) return makeSuccess({ ...MOCK_WEEKLY, roiFollowups: buildWeeklyRoiFollowups(MOCK_EXPEDITION.characters) }, { source: "mock" });
   const at = fetchedAt();
   try {
-    const siblingsRes = await fetchExpeditionCharacters(name);
+    let siblingsRes;
+    try {
+      siblingsRes = await fetchExpeditionCharacters(name);
+    } catch (error) {
+      return failure(error, "WEEKLY_NOT_FOUND", at);
+    }
     if (!siblingsRes.data?.length) return makeError("WEEKLY_NOT_FOUND", `'${name}'의 원정대 정보를 찾을 수 없습니다.`, { source, fetchedAt: at });
     const allCharacters = normalizeSiblings(siblingsRes.data);
     const characters: CharacterWeeklyStatus[] = allCharacters.filter((c) => c.itemLevel >= GOLD_ELIGIBLE_MIN_ITEM_LEVEL).map((c) => ({ characterName: c.characterName, characterClass: c.characterClass, itemLevel: c.itemLevel, contents: getAvailableContents(c.itemLevel) }));
     return makeSuccess({ representativeName: name, weeklyResetAt: getNextWeeklyReset(), characters, roiFollowups: buildWeeklyRoiFollowups(allCharacters) }, { source, fetchedAt: at });
   } catch (error) {
-    if (error instanceof LostArkAuthError) return authError(error);
-    return makeError("WEEKLY_NOT_FOUND", `'${name}'의 원정대 정보를 찾을 수 없습니다.`, { source, fetchedAt: at });
+    return failure(error, "WEEKLY_NOT_FOUND", at);
   }
 }

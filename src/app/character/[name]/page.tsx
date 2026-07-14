@@ -1,10 +1,11 @@
-import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import type { CharacterData } from "@/types/character";
 import type { SavedData } from "@/types/saved";
 import SpecSummary from "@/components/character/SpecSummary";
 import ErrorBanner from "@/components/ui/ErrorBanner";
 import PartialWarning from "@/components/ui/PartialWarning";
+import EmptyState from "@/components/ui/EmptyState";
+import DataMeta from "@/components/ui/DataMeta";
 import SaveButton from "@/components/SaveButton";
 import Link from "next/link";
 import { getCharacterData, getSavedData } from "@/lib/server-data";
@@ -26,9 +27,13 @@ export default async function CharacterPage({ params }: Props) {
     getSavedData(),
   ]);
 
-  // 404 처리
   if (!result.success && result.error?.code === "CHARACTER_NOT_FOUND") {
-    notFound();
+    return (
+      <div className="space-y-4">
+        <h1 className="text-xl font-bold text-white">{characterName}</h1>
+        <EmptyState message={`캐릭터 '${characterName}'를 찾을 수 없습니다.`} icon="🔎" />
+      </div>
+    );
   }
 
   // 전체 실패
@@ -84,6 +89,7 @@ export default async function CharacterPage({ params }: Props) {
 
       {/* 부분 성공 경고 */}
       <PartialWarning warnings={mergedWarnings} stale={mergedStale} />
+      <DataMeta source={result.source} fetchedAt={result.fetchedAt} partial={result.partial} stale={mergedStale} />
 
       {/* 스펙 요약 */}
       <SpecSummary character={data.character} />

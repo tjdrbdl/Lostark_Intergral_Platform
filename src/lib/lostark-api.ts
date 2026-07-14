@@ -19,12 +19,58 @@ interface FetchOptions {
   revalidate?: number;
 }
 
+export type LostArkErrorCode =
+  | "AUTH_INVALID_KEY"
+  | "UPSTREAM_NOT_FOUND"
+  | "RATE_LIMITED"
+  | "UPSTREAM_UNAVAILABLE";
+
+export class LostArkRequestError extends Error {
+  constructor(
+    public readonly code: LostArkErrorCode,
+    message: string
+  ) {
+    super(message);
+    this.name = "LostArkRequestError";
+  }
+}
+
 /** API 인증 실패 전용 에러 — 잘못된 키 또는 만료된 키 */
-export class LostArkAuthError extends Error {
+export class LostArkAuthError extends LostArkRequestError {
   constructor() {
-    super("LostArk API 인증 실패: API 키가 잘못되었거나 만료되었습니다.");
+    super("AUTH_INVALID_KEY", "LostArk API 인증 실패: API 키가 잘못되었거나 만료되었습니다.");
     this.name = "LostArkAuthError";
   }
+}
+
+export class LostArkNotFoundError extends LostArkRequestError {
+  constructor() {
+    super("UPSTREAM_NOT_FOUND", "LostArk API에서 요청한 데이터를 찾을 수 없습니다.");
+    this.name = "LostArkNotFoundError";
+  }
+}
+
+export class LostArkRateLimitError extends LostArkRequestError {
+  constructor() {
+    super("RATE_LIMITED", "LostArk API 요청 한도를 초과했습니다.");
+    this.name = "LostArkRateLimitError";
+  }
+}
+
+export class LostArkUpstreamError extends LostArkRequestError {
+  constructor() {
+    super("UPSTREAM_UNAVAILABLE", "외부 데이터 소스에 일시적으로 연결할 수 없습니다.");
+    this.name = "LostArkUpstreamError";
+  }
+}
+
+/** 외부 응답 상태를 테스트 가능하고 일관된 내부 오류로 분류한다. */
+export function classifyLostArkStatus(status: number): LostArkRequestError | null {
+  if (status === 401) return new LostArkAuthError();
+  if (status === 404) return new LostArkNotFoundError();
+  if (status === 429) return new LostArkRateLimitError();
+  if (status >= 500) return new LostArkUpstreamError();
+  return null;
 }
 
 async function lostarkFetch<T>(
@@ -38,22 +84,22 @@ async function lostarkFetch<T>(
   const url = `${LOSTARK_API_BASE}${path}`;
   const fetchedAt = new Date().toISOString();
 
-  const res = await fetch(url, {
-    headers: {
-      accept: "application/json",
-      authorization: `bearer ${API_KEY}`,
-    },
-    next: { revalidate: options.revalidate ?? 300 },
-  });
-
-  if (res.status === 401) {
-    throw new LostArkAuthError();
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: {
+        accept: "application/json",
+        authorization: `bearer ${API_KEY}`,
+      },
+      next: { revalidate: options.revalidate ?? 300 },
+    });
+  } catch {
+    throw new LostArkUpstreamError();
   }
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`LostArk API error ${res.status}: ${text}`);
-  }
+  const classifiedError = classifyLostArkStatus(res.status);
+  if (classifiedError) throw classifiedError;
+  if (!res.ok) throw new LostArkUpstreamError();
 
   const data = (await res.json()) as T;
   return { data, fetchedAt };

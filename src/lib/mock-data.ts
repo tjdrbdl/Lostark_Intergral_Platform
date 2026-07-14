@@ -12,12 +12,13 @@ import type { WeeklyData } from "@/types/weekly";
 import type { HomeData } from "@/types/home";
 import type { SavedData } from "@/types/saved";
 import type { RoiCard } from "@/types/roi";
+import { getNextWeeklyReset } from "@/lib/weekly-reset";
 
 export const MOCK_HOME: HomeData = {
   notices: [
     {
       id: "n1",
-      title: "정기 점검 안내 (매주 목요일 06:00 ~ 10:00)",
+      title: "정기 점검 안내 (매주 수요일 06:00 ~ 10:00)",
       type: "maintenance",
       startAt: "2026-04-16T06:00:00+09:00",
       endAt: "2026-04-16T10:00:00+09:00",
@@ -104,17 +105,6 @@ export const MOCK_EXPEDITION: ExpeditionData = {
   totalCharacterCount: 4,
   roiCards: [], // MOCK_ROI_CARDS는 아래에서 별도 정의 후 api route에서 결합
 };
-
-/** 다음 목요일 06:00 (서버시간 KST) 계산 */
-function getNextWeeklyReset(): string {
-  const now = new Date();
-  const day = now.getDay(); // 0=Sun, 4=Thu
-  const daysUntilThursday = (4 - day + 7) % 7 || 7;
-  const reset = new Date(now);
-  reset.setDate(now.getDate() + daysUntilThursday);
-  reset.setHours(6, 0, 0, 0);
-  return reset.toISOString();
-}
 
 export const MOCK_WEEKLY: WeeklyData = {
   representativeName: "아르페지오",

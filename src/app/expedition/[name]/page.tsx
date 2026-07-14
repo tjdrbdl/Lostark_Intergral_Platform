@@ -1,4 +1,3 @@
-import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import type { ExpeditionData } from "@/types/expedition";
 import type { SavedData } from "@/types/saved";
@@ -8,6 +7,7 @@ import SpecSummary from "@/components/character/SpecSummary";
 import ErrorBanner from "@/components/ui/ErrorBanner";
 import EmptyState from "@/components/ui/EmptyState";
 import PartialWarning from "@/components/ui/PartialWarning";
+import DataMeta from "@/components/ui/DataMeta";
 import SaveButton from "@/components/SaveButton";
 import Link from "next/link";
 import { getExpeditionData, getSavedData } from "@/lib/server-data";
@@ -30,7 +30,12 @@ export default async function ExpeditionPage({ params }: Props) {
   ]);
 
   if (!result.success && result.error?.code === "EXPEDITION_NOT_FOUND") {
-    notFound();
+    return (
+      <div className="space-y-4">
+        <h1 className="text-xl font-bold text-white">{characterName} 원정대</h1>
+        <EmptyState message={`'${characterName}'의 원정대를 찾을 수 없습니다.`} icon="🔎" />
+      </div>
+    );
   }
 
   if (!result.success) {
@@ -102,6 +107,7 @@ export default async function ExpeditionPage({ params }: Props) {
       </div>
 
       <PartialWarning warnings={mergedWarnings} stale={mergedStale} />
+      <DataMeta source={result.source} fetchedAt={result.fetchedAt} partial={result.partial} stale={mergedStale} />
 
       {/* 캐릭터 목록 */}
       <ExpeditionOverview data={data} />

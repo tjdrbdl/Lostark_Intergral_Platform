@@ -1,4 +1,3 @@
-import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import type { WeeklyData } from "@/types/weekly";
 import type { SavedData } from "@/types/saved";
@@ -7,6 +6,7 @@ import RoiCardList from "@/components/expedition/RoiCardList";
 import ErrorBanner from "@/components/ui/ErrorBanner";
 import EmptyState from "@/components/ui/EmptyState";
 import PartialWarning from "@/components/ui/PartialWarning";
+import DataMeta from "@/components/ui/DataMeta";
 import Link from "next/link";
 import { getWeeklyData, getSavedData } from "@/lib/server-data";
 
@@ -28,7 +28,12 @@ export default async function WeeklyPage({ params }: Props) {
   ]);
 
   if (!result.success && result.error?.code === "WEEKLY_NOT_FOUND") {
-    notFound();
+    return (
+      <div className="space-y-4">
+        <h1 className="text-xl font-bold text-white">{characterName} 주간 체크</h1>
+        <EmptyState message={`'${characterName}'의 주간 정보를 찾을 수 없습니다.`} icon="🔎" />
+      </div>
+    );
   }
 
   if (!result.success) {
@@ -89,6 +94,7 @@ export default async function WeeklyPage({ params }: Props) {
       </div>
 
       <PartialWarning warnings={mergedWarnings} stale={mergedStale} />
+      <DataMeta source={result.source} fetchedAt={result.fetchedAt} partial={result.partial} stale={mergedStale} />
 
       {data.characters.length === 0 ? (
         <EmptyState

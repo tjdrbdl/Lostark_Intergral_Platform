@@ -5,9 +5,9 @@
 |------|------|------|
 | `success` | boolean | 요청 성공 여부 |
 | `source` | string[] | 데이터 소스 목록 (`mock`, `lostark-openapi`, `memory`, `fallback` 등) |
-| `fetchedAt` | string \| null | 데이터 취득 시각 (ISO 8601) |
-| `cachedAt` | string \| null | 캐시 저장 시각 |
-| `stale` | boolean | 캐시 만료 여부 |
+| `fetchedAt` | string \| null | 서버가 응답을 조립한 시각 (ISO 8601). 실제 외부 fetch 성공 시각과 다를 수 있음 |
+| `cachedAt` | string \| null | 애플리케이션에서 확인할 수 있는 캐시 저장 시각. 현재는 항상 `null` |
+| `stale` | boolean | stale fallback 여부. 현재 stale fallback을 구현하지 않아 `false` |
 | `partial` | boolean | 일부 소스 실패로 부분 성공 여부 |
 | `warnings` | string[] | 사용자에게 표시할 경고 메시지 목록 |
 
@@ -35,9 +35,10 @@
 | 코드 | HTTP | 설명 |
 |---|---|---|
 | `INVALID_NAME` | 400 | 이름 파라미터 비어 있음 |
-| `CHARACTER_NOT_FOUND` | 404 | 해당 캐릭터 없음 (API 404 또는 프로필 조회 실패) |
+| `CHARACTER_NOT_FOUND` | 404 | 프로필 upstream 404 또는 필수 프로필 데이터가 null |
 | `AUTH_INVALID_KEY` | 401 | API 키가 잘못되었거나 만료됨 |
-| `CHARACTER_FETCH_ERROR` | 500 | 서버 내부 오류 |
+| `RATE_LIMITED` | 429 | upstream 요청 한도 초과 |
+| `UPSTREAM_UNAVAILABLE` | 502 | upstream 5xx 또는 네트워크 실패 |
 
 partial=true 케이스: 장비/보석/각인/원정대 목록 중 일부 실패 시 `warnings`에 상세 항목 포함.
 
@@ -46,9 +47,10 @@ partial=true 케이스: 장비/보석/각인/원정대 목록 중 일부 실패 
 | 코드 | HTTP | 설명 |
 |---|---|---|
 | `INVALID_NAME` | 400 | 이름 파라미터 비어 있음 |
-| `EXPEDITION_NOT_FOUND` | 404 | 원정대 캐릭터 목록 없음 (API 실패 또는 null 반환) |
+| `EXPEDITION_NOT_FOUND` | 404 | 원정대 캐릭터 목록 upstream 404 또는 필수 목록이 null/empty |
 | `AUTH_INVALID_KEY` | 401 | API 키가 잘못되었거나 만료됨 |
-| `EXPEDITION_FETCH_ERROR` | 500 | 서버 내부 오류 |
+| `RATE_LIMITED` | 429 | upstream 요청 한도 초과 |
+| `UPSTREAM_UNAVAILABLE` | 502 | upstream 5xx 또는 네트워크 실패 |
 
 partial=true 케이스: 대표 캐릭터 상세 조회 실패 시 `topCharacter=null`로 반환하고 `warnings` 포함.
 
@@ -57,9 +59,10 @@ partial=true 케이스: 대표 캐릭터 상세 조회 실패 시 `topCharacter=
 | 코드 | HTTP | 설명 |
 |---|---|---|
 | `INVALID_NAME` | 400 | 이름 파라미터 비어 있음 |
-| `WEEKLY_NOT_FOUND` | 404 | 원정대 캐릭터 목록 없음 (API 실패 또는 null 반환) |
+| `WEEKLY_NOT_FOUND` | 404 | 원정대 캐릭터 목록 upstream 404 또는 필수 목록이 null/empty |
 | `AUTH_INVALID_KEY` | 401 | API 키가 잘못되었거나 만료됨 |
-| `WEEKLY_FETCH_ERROR` | 500 | 서버 내부 오류 |
+| `RATE_LIMITED` | 429 | upstream 요청 한도 초과 |
+| `UPSTREAM_UNAVAILABLE` | 502 | upstream 5xx 또는 네트워크 실패 |
 
 #### API 키 정책
 
@@ -67,7 +70,17 @@ partial=true 케이스: 대표 캐릭터 상세 조회 실패 시 `topCharacter=
 |---|---|
 | `LOSTARK_API_KEY` 미설정 | `IS_MOCK_MODE=true` → mock 데이터 반환, `source: ["mock"]` |
 | `LOSTARK_API_KEY` 잘못됨 | LostArk API 401 → `LostArkAuthError` throw → `AUTH_INVALID_KEY` 401 반환 |
-| 외부 API 일부 실패 | `partial: true`, `warnings` 배열에 항목 포함 |
+| upstream 404 또는 필수 데이터 null | route별 `*_NOT_FOUND` 404 반환 |
+| upstream 429 | `RATE_LIMITED` 429 반환 |
+| upstream 5xx/network | `UPSTREAM_UNAVAILABLE` 502 반환 |
+| 선택 데이터 일부 실패 | HTTP 200, `partial: true`, `warnings` 배열에 항목 포함 |
+
+### 주간 초기화 기준
+
+`weeklyResetAt`은 서버 OS 시간대와 무관하게 `Asia/Seoul` 기준 매주 수요일 06:00을 사용한다.
+
+- 수요일 05:59 KST: 당일 06:00 KST
+- 수요일 06:00 KST 이상: 다음 주 수요일 06:00 KST
 
 ### 저장 쓰기 (Write)
 
