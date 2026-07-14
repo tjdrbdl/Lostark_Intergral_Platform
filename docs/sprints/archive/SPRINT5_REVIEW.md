@@ -211,7 +211,7 @@ Sprint 6 목표는 기능 추가가 아니라 **QA 가능한 MVP 안정화**다.
 | Home Page | `src/app/page.tsx` | 검색 진입, 저장 목록, 최근 변화, 홈 상태 처리 |
 | Search | `src/components/SearchBar.tsx`, `src/app/search/page.tsx` | 검색 type/q를 route로 변환 |
 | Saved | `src/app/api/saved/*`, `src/lib/saved-store.ts` | MVP in-memory 저장/수정/삭제 |
-| Docs | `docs/API_SCHEMA.md`, `docs/pm_handoff_2026-04-17/*` | API 계약과 QA 결과 동기화 |
+| Docs | `docs/API_SCHEMA.md`, `docs/sprints/*` | API 계약과 QA 결과 동기화 |
 
 ---
 
@@ -220,7 +220,7 @@ Sprint 6 목표는 기능 추가가 아니라 **QA 가능한 MVP 안정화**다.
 개발창에 아래 프롬프트를 그대로 전달한다.
 
 ```text
-docs/pm_handoff_2026-04-17/SPRINT5_CODE_REVIEW_AND_SPRINT6_HANDOFF.md 파일을 기준으로 Sprint 6 안정화 작업을 진행해줘.
+docs/sprints/archive/SPRINT5_REVIEW.md 파일을 기준으로 Sprint 6 안정화 작업을 진행해줘.
 
 원칙:
 - 기능 추가하지 말 것.
@@ -267,5 +267,4 @@ Sprint 6 완료 조건:
 - 홈/레이아웃에서 특정 캐릭터명 hardcode 제거
 - 홈 상태가 loading/empty/error/partial 원칙을 다시 만족
 - `git status -sb`에 의도하지 않은 artifact 없음
-- `docs/pm_handoff_2026-04-17/SPRINT6_QA_REPORT.md` 작성
-
+- `docs/sprints/archive/SPRINT6_QA.md` 작성
